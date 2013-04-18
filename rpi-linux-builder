@@ -1,0 +1,69 @@
+#!/bin/bash
+
+MODE="$1"
+
+SCRIPTDIR=$(cd -P $(dirname "$0"); pwd -P)
+
+LINUXVER="3.8.y"
+SOURCEDIR="$SCRIPTDIR/rpi-linux"
+TOOLSDIR="$SCRIPTDIR/rpi-tools"
+
+XCOMPILE="${TOOLSDIR}/arm-bcm2708/arm-bcm2708hardfp-linux-gnueabi/bin/arm-bcm2708hardfp-linux-gnueabi-"
+ARCHTECTURE="arm"
+
+distclean() {
+    [ -d "$SOURCEDIR" ] && rm -rf "$SOURCEDIR"
+    [ -d "$TOOLSDIR"  ] && rm -rf "$TOOLSDIR"
+}
+
+dl_extract_rpi_linux() {
+    curl -L -o - https://api.github.com/repos/raspberrypi/linux/tarball/rpi-${LINUXVER} | tar xzf -
+    mv raspberrypi-linux-* ${SOURCEDIR}
+}
+
+dl_extract_rpi_tools() {
+    curl -L -o -  https://api.github.com/repos/raspberrypi/tools/tarball/master | tar xzf -
+    mv raspberrypi-tools-* ${TOOLSDIR}
+}
+
+make_rpi_linux() {
+    (
+        cd "$SOURCEDIR"
+        make CROSS_COMPILE="${XCOMPILE}" ARCH="${ARCHTECTURE}" $@
+    )
+}
+
+action() {
+    case "$1" in
+        all_dl_extract)
+            dl_extract_rpi_linux
+            dl_extract_rpi_tools
+            ;;
+        configure)
+            if [ -e "$SCRIPTDIR/config.gz" ]; then
+                gunzip -c "$SCRIPTDIR/config.gz" > "$SOURCEDIR/.config"
+                mv "$SCRIPTDIR/config.gz" "$SCRIPTDIR/config.gz.applyed"
+            fi
+            make_rpi_linux menuconfig
+            ;;
+        build)  
+            make_rpi_linux
+            make_rpi_linux modules
+            ;;
+        distclean)
+            distclean
+            ;;
+        *)
+            echo "MODE is not specified."
+            ;;
+    esac
+}
+
+if [ "$MODE" = "all" ]; then
+    action all_dl_extract
+    action configure
+    action build
+else
+    action $MODE
+fi
+
