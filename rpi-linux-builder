@@ -1,12 +1,16 @@
 #!/bin/bash
 
 MODE="$1"
+set -e
 
 SCRIPTDIR=$(cd -P $(dirname "$0"); pwd -P)
 
 LINUXVER="3.8.y"
 SOURCEDIR="$SCRIPTDIR/rpi-linux"
 TOOLSDIR="$SCRIPTDIR/rpi-tools"
+DISTDIR="$SCRIPTDIR/dist"
+
+BUILD_PROCESSORS="4"
 
 XCOMPILE="${TOOLSDIR}/arm-bcm2708/arm-bcm2708hardfp-linux-gnueabi/bin/arm-bcm2708hardfp-linux-gnueabi-"
 ARCHTECTURE="arm"
@@ -29,7 +33,7 @@ dl_extract_rpi_tools() {
 make_rpi_linux() {
     (
         cd "$SOURCEDIR"
-        make CROSS_COMPILE="${XCOMPILE}" ARCH="${ARCHTECTURE}" $@
+        make -j${BUILD_PROCESSORS} CROSS_COMPILE="${XCOMPILE}" ARCH="${ARCHTECTURE}" $@
     )
 }
 
@@ -49,6 +53,12 @@ action() {
         build)  
             make_rpi_linux
             make_rpi_linux modules
+            ;;
+        mkdistpackage)
+            make_rpi_linux INSTALL_MOD_PATH="$DISTDIR" modules_install
+            [ ! -d "$DISTDIR/boot" ] && mkdir "$DISTDIR/boot"
+            cp "$SOURCEDIR/arch/arm/boot/zImage" "$DISTDIR/boot/kernel.img"
+            tar cf - -C "$DISTDIR" boot lib | gzip -9 > "$SCRIPTDIR/rpi-kernel.tar.gz"
             ;;
         distclean)
             distclean
