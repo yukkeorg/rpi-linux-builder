@@ -73,6 +73,7 @@ if [ "$MODE" = "all" ]; then
     action all_dl_extract
     action configure
     action build
+    action mkdistpackage
 else
     action $MODE
 fi
