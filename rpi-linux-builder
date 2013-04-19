@@ -15,6 +15,9 @@ BUILD_PROCESSORS="4"
 XCOMPILE="${TOOLSDIR}/arm-bcm2708/arm-bcm2708hardfp-linux-gnueabi/bin/arm-bcm2708hardfp-linux-gnueabi-"
 ARCHTECTURE="arm"
 
+chkcmd() { which $@ >/dev/null 2>&1; }
+die() { echo $@ 1>&2; exit 1; }
+
 distclean() {
     [ -d "$SOURCEDIR" ] && rm -rf "$SOURCEDIR"
     [ -d "$TOOLSDIR"  ] && rm -rf "$TOOLSDIR"
@@ -37,6 +40,14 @@ make_rpi_linux() {
     )
 }
 
+mkdistpackage() {
+    local FAKEROOT=$(which fakeroot)
+    make_rpi_linux INSTALL_MOD_PATH="$DISTDIR" modules_install
+    [ ! -d "$DISTDIR/boot" ] && mkdir "$DISTDIR/boot"
+    cp "$SOURCEDIR/arch/arm/boot/zImage" "$DISTDIR/boot/kernel.img"
+    ${FAKEROOT} tar cf - -C "$DISTDIR" boot lib | gzip -9 > "$SCRIPTDIR/rpi-kernel.tar.gz"
+}
+
 action() {
     case "$1" in
         all_dl_extract)
@@ -55,10 +66,7 @@ action() {
             make_rpi_linux modules
             ;;
         mkdistpackage)
-            make_rpi_linux INSTALL_MOD_PATH="$DISTDIR" modules_install
-            [ ! -d "$DISTDIR/boot" ] && mkdir "$DISTDIR/boot"
-            cp "$SOURCEDIR/arch/arm/boot/zImage" "$DISTDIR/boot/kernel.img"
-            tar cf - -C "$DISTDIR" boot lib | gzip -9 > "$SCRIPTDIR/rpi-kernel.tar.gz"
+            mkdistpackage
             ;;
         distclean)
             distclean
@@ -68,6 +76,7 @@ action() {
             ;;
     esac
 }
+
 
 if [ "$MODE" = "all" ]; then
     action all_dl_extract
