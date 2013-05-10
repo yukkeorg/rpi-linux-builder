@@ -1,14 +1,16 @@
 #!/bin/bash
 
 MODE="$1"
+LOGINHOSTUSER="$2"
 set -e
 
 SCRIPTDIR=$(cd -P $(dirname "$0"); pwd -P)
 
-LINUXVER="3.8.y"
+LINUXVER="3.9.y"
 SOURCEDIR="$SCRIPTDIR/rpi-linux"
 TOOLSDIR="$SCRIPTDIR/rpi-tools"
 DISTDIR="$SCRIPTDIR/dist"
+PKGFILE="$SCRIPTDIR/rpi-kernel.tar.gz"
 
 BUILD_PROCESSORS="4"
 
@@ -19,8 +21,9 @@ chkcmd() { which $@ >/dev/null 2>&1; }
 die() { echo $@ 1>&2; exit 1; }
 
 distclean() {
-    [ -d "$SOURCEDIR" ] && rm -rf "$SOURCEDIR"
-    [ -d "$TOOLSDIR"  ] && rm -rf "$TOOLSDIR"
+    for d in "$SOURCEDIR" "$TOOLSDIR" "$DISTDIR" "$PKGFILE"; do
+        [ -e "$d" ] && rm -rf "$d"
+    done
 }
 
 dl_extract_rpi_linux() {
@@ -45,7 +48,7 @@ mkdistpackage() {
     make_rpi_linux INSTALL_MOD_PATH="$DISTDIR" modules_install
     [ ! -d "$DISTDIR/boot" ] && mkdir "$DISTDIR/boot"
     cp "$SOURCEDIR/arch/arm/boot/zImage" "$DISTDIR/boot/kernel.img"
-    ${FAKEROOT} tar cf - -C "$DISTDIR" boot lib | gzip -9 > "$SCRIPTDIR/rpi-kernel.tar.gz"
+    ${FAKEROOT} tar cf - -C "$DISTDIR" boot lib | gzip -9 > "$PKGFILE"
 }
 
 action() {
@@ -53,6 +56,10 @@ action() {
         all_dl_extract)
             dl_extract_rpi_linux
             dl_extract_rpi_tools
+            ;;
+        getconfig)
+            [ -z "$LOGINHOSTUSER" ] && exit 1
+            scp ${LOGINHOSTUSER}:/proc/config.gz ${SCRIPTDIR}
             ;;
         configure)
             if [ -e "$SCRIPTDIR/config.gz" ]; then
